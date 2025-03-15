@@ -177,8 +177,15 @@ if uploaded_file:
     else:
         market_cap = st.number_input('Enter Market Capitalization ($)', min_value=1.0, value=1000000000.0, format="%.2f")
 
-    pe_ratio = market_cap / data['Net Income'].sum()  # Example P/E ratio
-    debt_equity_ratio = data['Total Debt'].sum() / data['Total Equity'].sum()  # Example Debt/Equity ratio
+    # Check if 'Net Income' exists in the uploaded data, and if not, prompt for manual input
+    if 'Net Income' in data.columns:
+        net_income = data['Net Income'].sum()  # Sum the Net Income for simplicity
+    else:
+        net_income = st.number_input('Enter Net Income ($)', min_value=1.0, value=100000000.0, format="%.2f")
+
+    # Calculate P/E ratio
+    pe_ratio = market_cap / net_income  # Price/Earnings ratio
+    debt_equity_ratio = data['Total Debt'].sum() / data['Total Equity'].sum() if 'Total Debt' in data.columns and 'Total Equity' in data.columns else 0
 
     st.write(f"P/E Ratio: {pe_ratio:.2f}")
     st.write(f"Debt/Equity Ratio: {debt_equity_ratio:.2f}")
