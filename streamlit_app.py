@@ -4,35 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 from io import BytesIO
-import requests
-import time
-
-# Helper function to fetch data from Alpha Vantage
-def fetch_alpha_vantage_data(ticker, api_key, data_type='TIME_SERIES_DAILY', interval='1d', outputsize='compact'):
-    """Fetch financial data from Alpha Vantage API."""
-    base_url = f'https://www.alphavantage.co/query?function={data_type}&symbol={ticker}&interval={interval}&apikey={api_key}'
-    if data_type == 'TIME_SERIES_DAILY':
-        url = f'{base_url}&outputsize={outputsize}'
-    else:
-        url = base_url
-    
-    try:
-        response = requests.get(url)
-        data = response.json()
-        if 'Time Series (Daily)' in data:
-            return data['Time Series (Daily)']
-        elif 'Time Series (1min)' in data:
-            return data['Time Series (1min)']
-        elif 'Monthly Adjusted Time Series' in data:
-            return data['Monthly Adjusted Time Series']
-        elif 'quarterlyReports' in data:
-            return data['quarterlyReports']
-        else:
-            st.error(f"Error fetching data: {data.get('Note', 'Unknown error')}")
-            return None
-    except requests.exceptions.RequestException as e:
-        st.error(f"An error occurred: {e}")
-        return None
 
 # Helper functions for DCF Calculation
 def calculate_fcf(data):
@@ -79,10 +50,10 @@ def plot_sensitivity_analysis(sensitivity_df):
     return fig
 
 # Streamlit interface
-st.title('Automated DCF Valuation with Alpha Vantage Integration')
+st.title('Automated DCF Valuation')
 
 st.markdown("""
-This application performs an **automated DCF valuation** of a company based on uploaded financial statements or external data from **Alpha Vantage**. You can also perform **sensitivity analysis**, adjust forecast scenarios, and analyze **industry benchmarks**.
+This application performs an **automated DCF valuation** of a company based on uploaded financial statements. You can also perform **sensitivity analysis**, adjust forecast scenarios, and analyze **industry benchmarks**.
 """)
 
 # Allow user to download the template
@@ -118,23 +89,6 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# User inputs for Alpha Vantage API Key and Stock Ticker
-api_key = st.text_input('Enter your Alpha Vantage API Key:')
-ticker_input = st.text_input('Enter Stock Ticker (e.g., AAPL)', value="AAPL")
-
-# Fetch data from Alpha Vantage if ticker is provided
-if api_key and ticker_input:
-    data = fetch_alpha_vantage_data(ticker_input, api_key, data_type='TIME_SERIES_DAILY', interval='1d')
-    
-    if data:
-        # Convert the time series data into a DataFrame
-        df = pd.DataFrame(data).T
-        df['date'] = pd.to_datetime(df.index)
-        df.set_index('date', inplace=True)
-        df = df[['4. close']].rename(columns={'4. close': 'Close Price'})
-        st.write(f"Fetched data for {ticker_input}:")
-        st.write(df)
-
 # File uploader for financial statement (CSV or Excel)
 uploaded_file = st.file_uploader("Upload your filled financial statement (CSV/Excel)", type=["csv", "xlsx"])
 
@@ -152,8 +106,8 @@ if uploaded_file:
     st.write(f"Calculated Free Cash Flow: {fcf}")
 
     # Allow user to input other assumptions for the valuation (Cost of Equity, Cost of Debt, etc.)
-    cost_of_equity = st.number_input('Enter Cost of Equity (%)', min_value=0.0, max_value=100.0, value=8.0)
-    cost_of_debt = st.number_input('Enter Cost of Debt (%)', min_value=0.0, max_value=100.0, value=4.0)
+    cost_of_equity = st.number_input('Enter Cost of Equity (%)', min_value=0.0, max_value=100.0, value=8.0, step=0.1)
+    cost_of_debt = st.number_input('Enter Cost of Debt (%)', min_value=0.0, max_value=100.0, value=4.0, step=0.1)
     equity_value = st.number_input('Enter Total Equity Value ($)', min_value=1.0, value=500000000)
     debt_value = st.number_input('Enter Total Debt Value ($)', min_value=1.0, value=200000000)
     tax_rate = st.number_input('Enter Tax Rate (%)', min_value=0.0, max_value=100.0, value=25.0) / 100
