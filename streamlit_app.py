@@ -270,6 +270,10 @@ if uploaded_file:
                 fig_debt_equity = px.line(data, x=data.index, y=calculate_debt_to_equity_ratio(data), title='Debt to Equity Ratio')
                 st.plotly_chart(fig_debt_equity)
 
+                num_simulations = st.number_input("Enter Number of Simulations", min_value=1, value=100)
+                num_days = st.number_input("Enter Number of Days", min_value=1, value=252)
+                vol = st.number_input("Enter Volatility (%)", min_value=0.0, max_value=100.0, value=20.0, step=0.1) / 100
+
                 simulations_revenue = monte_carlo_simulation(data['Revenue'].iloc[-1], num_simulations, num_days, vol)
                 fig_mc_revenue = go.Figure()
                 for simulation in simulations_revenue:
@@ -315,6 +319,3 @@ if uploaded_file:
             st.error(f"Error: {e}")
         except ValueError as e:
             st.error(f"Error: {e}")
-
-else:
-    st.info("Please upload a financial statement CSV or Excel file to proceed.")
