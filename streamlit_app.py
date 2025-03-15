@@ -171,18 +171,13 @@ if uploaded_file:
     # Financial Metrics (Bar chart comparison of key financial metrics)
     st.subheader("Key Financial Metrics")
 
-    metrics_df = pd.DataFrame({
-        'Metric': ['Revenue', 'Operating Income', 'Taxes', 'Capital Expenditures', 'FCF'],
-        'Value': [data['Revenue'].sum(), data['Operating Income'].sum(), data['Taxes'].sum(), data['Capital Expenditures'].sum(), fcf.sum()]
-    })
+    # Check if 'Market Capitalization' exists or use manual input
+    if 'Market Capitalization' in data.columns:
+        market_cap = data['Market Capitalization'].sum()
+    else:
+        market_cap = st.number_input('Enter Market Capitalization ($)', min_value=1.0, value=1000000000.0, format="%.2f")
 
-    fig_metrics = px.bar(metrics_df, x='Metric', y='Value', title="Key Financial Metrics", labels={'Value': 'Amount ($)'})
-    st.plotly_chart(fig_metrics)
-
-    # Financial Ratios (P/E, Debt/Equity)
-    st.subheader("Key Financial Ratios")
-
-    pe_ratio = data['Market Capitalization'].sum() / data['Net Income'].sum()  # Example P/E ratio
+    pe_ratio = market_cap / data['Net Income'].sum()  # Example P/E ratio
     debt_equity_ratio = data['Total Debt'].sum() / data['Total Equity'].sum()  # Example Debt/Equity ratio
 
     st.write(f"P/E Ratio: {pe_ratio:.2f}")
