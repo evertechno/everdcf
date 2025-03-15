@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 from io import BytesIO
@@ -315,7 +314,7 @@ if st.session_state['authenticated']:
                 for key, value in assumptions.items():
                     st.write(f"{key}: {value}")
 
-                                # Historical Data Analysis
+                # Historical Data Analysis
                 ticker = st.text_input("Enter Stock Ticker for Historical Data Analysis")
                 if ticker:
                     historical_data = fetch_historical_data(ticker)
@@ -332,3 +331,17 @@ if st.session_state['authenticated']:
                     fig_trend.add_trace(go.Scatter(x=historical_data.index, y=trend, mode='lines', name='Trend', line=dict(dash='dash')))
                     fig_trend.update_layout(title='Historical Data and Trend Analysis', xaxis_title='Year', yaxis_title='Close Price ($)', template='plotly_white')
                     st.plotly_chart(fig_trend)
+
+                # Industry Comparison
+                peer_tickers = st.text_input("Enter Peer Tickers for Industry Comparison (comma separated)").split(',')
+                if ticker and peer_tickers:
+                    company_data, peer_data = industry_comparison(ticker, peer_tickers)
+                    st.write("Company Data:", company_data)
+                    for peer_ticker, data in peer_data.items():
+                        st.write(f"Peer Data ({peer_ticker}):", data)
+
+                # Monte Carlo Simulation
+                initial_value = st.number_input("Enter Initial Value for Monte Carlo Simulation", min_value=1.0, value=100.0)
+                num_simulations = st.number_input("Enter Number of Simulations", min_value=1, value=100)
+                num_days = st.number_input("Enter Number of Days", min_value=1, value=252)
+               
