@@ -145,89 +145,93 @@ if uploaded_file:
         growth_rate = st.number_input('Enter Perpetuity Growth Rate (%)', min_value=0.0, max_value=100.0, value=2.5, step=0.1, format="%.2f") / 100
         forecast_years = int(st.number_input('Enter Number of Forecast Years', min_value=1, max_value=10, value=5, format="%.0f"))
 
-        # Calculate WACC
-        wacc = calculate_wacc(cost_of_equity / 100, cost_of_debt / 100, equity_value, debt_value, tax_rate)
-
-        # Calculate Terminal Value
-        terminal_value = calculate_terminal_value(fcf.iloc[-1], growth_rate, wacc)
-
-        # DCF Valuation
-        dcf_value = dcf_valuation(fcf, wacc, terminal_value, forecast_years)
-
-        st.write(f"Calculated WACC: {wacc * 100:.2f}%")
-        st.write(f"Calculated Terminal Value: ${terminal_value:,.2f}")
-        st.write(f"DCF Valuation: ${dcf_value:,.2f}")
-
-        # Sensitivity Analysis
-        wacc_range = np.linspace(0.05, 0.15, 11)
-        growth_range = np.linspace(0.01, 0.10, 10)
-        sensitivity_df = sensitivity_analysis(fcf, wacc_range, growth_range, forecast_years)
-
-        # Plot Sensitivity Analysis
-        sensitivity_fig = plot_sensitivity_analysis(sensitivity_df)
-        st.plotly_chart(sensitivity_fig)
-
-        # Enhanced Financial Projections Visualization
-        st.subheader("Financial Projections & Valuation")
-
-        # Plot Free Cash Flow over the forecast years with bar chart and line chart
-        years = np.arange(1, forecast_years + 1)
-        fcf_forecast = fcf.head(forecast_years).values  # Use first n years' FCF
-        fig_fcf = plt.figure(figsize=(10, 6))
-        plt.bar(years, fcf_forecast, color='skyblue', label="Free Cash Flow")
-        plt.plot(years, fcf_forecast, marker='o', color='red', label="Free Cash Flow (Line)")
-        plt.title('Free Cash Flow Projections')
-        plt.xlabel('Year')
-        plt.ylabel('FCF ($)')
-        plt.grid(True)
-        plt.legend()
-        st.pyplot(fig_fcf)
-
-        # Plot DCF Valuation
-        fig_dcf = px.bar(x=[f'DCF Value'], y=[dcf_value], title='DCF Valuation', labels={'x': 'Valuation Type', 'y': 'Value ($)'})
-        st.plotly_chart(fig_dcf)
-
-        # Financial Metrics (Bar chart comparison of key financial metrics)
-        st.subheader("Key Financial Metrics")
-
-        # Check if 'Market Capitalization' exists or use manual input
-        if 'Market Capitalization' in data.columns:
-            market_cap = data['Market Capitalization'].sum()
+        # Validate forecast years
+        if forecast_years > len(fcf):
+            st.error("Error: Forecast years exceed the available data length. Please enter a valid number of forecast years.")
         else:
-            market_cap = st.number_input('Enter Market Capitalization ($)', min_value=1.0, value=1000000000.0, format="%.2f")
+            # Calculate WACC
+            wacc = calculate_wacc(cost_of_equity / 100, cost_of_debt / 100, equity_value, debt_value, tax_rate)
 
-        # Check if 'Net Income' exists in the uploaded data, and if not, prompt for manual input
-        if 'Net Income' in data.columns:
-            net_income = data['Net Income'].sum()  # Sum the Net Income for simplicity
-        else:
-            net_income = st.number_input('Enter Net Income ($)', min_value=1.0, value=100000000.0, format="%.2f")
+            # Calculate Terminal Value
+            terminal_value = calculate_terminal_value(fcf.iloc[-1], growth_rate, wacc)
 
-        # Calculate P/E ratio
-        pe_ratio = market_cap / net_income  # Price/Earnings ratio
-        debt_equity_ratio = data['Total Debt'].sum() / data['Total Equity'].sum() if 'Total Debt' in data.columns and 'Total Equity' in data.columns else 0
+            # DCF Valuation
+            dcf_value = dcf_valuation(fcf, wacc, terminal_value, forecast_years)
 
-        st.write(f"P/E Ratio: {pe_ratio:.2f}")
-        st.write(f"Debt/Equity Ratio: {debt_equity_ratio:.2f}")
+            st.write(f"Calculated WACC: {wacc * 100:.2f}%")
+            st.write(f"Calculated Terminal Value: ${terminal_value:,.2f}")
+            st.write(f"DCF Valuation: ${dcf_value:,.2f}")
 
-        # Display other financial metrics
-        st.subheader("DCF Assumptions")
-        st.write(f"Cost of Equity: {cost_of_equity}%")
-        st.write(f"Cost of Debt: {cost_of_debt}%")
-        st.write(f"Tax Rate: {tax_rate * 100}%")
-        st.write(f"Perpetuity Growth Rate: {growth_rate * 100}%")
+            # Sensitivity Analysis
+            wacc_range = np.linspace(0.05, 0.15, 11)
+            growth_range = np.linspace(0.01, 0.10, 10)
+            sensitivity_df = sensitivity_analysis(fcf, wacc_range, growth_range, forecast_years)
 
-        # Downloadable Results (optional)
-        df_results = pd.DataFrame({
-            "Metric": ["DCF Value", "Terminal Value", "WACC", "FCF (Year 1)", "FCF (Year 2)", "FCF (Year 3)", "FCF (Year 4)", "FCF (Year 5)"],
-            "Value": [dcf_value, terminal_value, wacc * 100, *fcf_forecast]
-        })
-        
-        st.download_button(
-            label="Download Valuation Results",
-            data=df_results.to_csv(index=False),
-            file_name="dcf_valuation_results.csv",
-            mime="text/csv"
-        )
+            # Plot Sensitivity Analysis
+            sensitivity_fig = plot_sensitivity_analysis(sensitivity_df)
+            st.plotly_chart(sensitivity_fig)
+
+            # Enhanced Financial Projections Visualization
+            st.subheader("Financial Projections & Valuation")
+
+            # Plot Free Cash Flow over the forecast years with bar chart and line chart
+            years = np.arange(1, forecast_years + 1)
+            fcf_forecast = fcf.head(forecast_years).values  # Use first n years' FCF
+            fig_fcf = plt.figure(figsize=(10, 6))
+            plt.bar(years, fcf_forecast, color='skyblue', label="Free Cash Flow")
+            plt.plot(years, fcf_forecast, marker='o', color='red', label="Free Cash Flow (Line)")
+            plt.title('Free Cash Flow Projections')
+            plt.xlabel('Year')
+            plt.ylabel('FCF ($)')
+            plt.grid(True)
+            plt.legend()
+            st.pyplot(fig_fcf)
+
+            # Plot DCF Valuation
+            fig_dcf = px.bar(x=[f'DCF Value'], y=[dcf_value], title='DCF Valuation', labels={'x': 'Valuation Type', 'y': 'Value ($)'})
+            st.plotly_chart(fig_dcf)
+
+            # Financial Metrics (Bar chart comparison of key financial metrics)
+            st.subheader("Key Financial Metrics")
+
+            # Check if 'Market Capitalization' exists or use manual input
+            if 'Market Capitalization' in data.columns:
+                market_cap = data['Market Capitalization'].sum()
+            else:
+                market_cap = st.number_input('Enter Market Capitalization ($)', min_value=1.0, value=1000000000.0, format="%.2f")
+
+            # Check if 'Net Income' exists in the uploaded data, and if not, prompt for manual input
+            if 'Net Income' in data.columns:
+                net_income = data['Net Income'].sum()  # Sum the Net Income for simplicity
+            else:
+                net_income = st.number_input('Enter Net Income ($)', min_value=1.0, value=100000000.0, format="%.2f")
+
+            # Calculate P/E ratio
+            pe_ratio = market_cap / net_income  # Price/Earnings ratio
+            debt_equity_ratio = data['Total Debt'].sum() / data['Total Equity'].sum() if 'Total Debt' in data.columns and 'Total Equity' in data.columns else 0
+
+            st.write(f"P/E Ratio: {pe_ratio:.2f}")
+            st.write(f"Debt/Equity Ratio: {debt_equity_ratio:.2f}")
+
+            # Display other financial metrics
+            st.subheader("DCF Assumptions")
+            st.write(f"Cost of Equity: {cost_of_equity}%")
+            st.write(f"Cost of Debt: {cost_of_debt}%")
+            st.write(f"Tax Rate: {tax_rate * 100}%")
+            st.write(f"Perpetuity Growth Rate: {growth_rate * 100}%")
+
+            # Downloadable Results (optional)
+            df_results = pd.DataFrame({
+                "Metric": ["DCF Value", "Terminal Value", "WACC", "FCF (Year 1)", "FCF (Year 2)", "FCF (Year 3)", "FCF (Year 4)", "FCF (Year 5)"],
+                "Value": [dcf_value, terminal_value, wacc * 100, *fcf_forecast]
+            })
+            
+            st.download_button(
+                label="Download Valuation Results",
+                data=df_results.to_csv(index=False),
+                file_name="dcf_valuation_results.csv",
+                mime="text/csv"
+            )
 
     except KeyError as e:
         st.error(f"Error: {e}")
