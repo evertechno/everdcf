@@ -247,16 +247,16 @@ if uploaded_file:
                 for key, value in assumptions.items():
                     st.write(f"{key}: {value}")
 
-                profit_margin = calculate_profit_margin(data)
+                profit_margin = calculate_profit_margin(data).mean()
                 ebitda = calculate_ebitda(data)
-                revenue_growth = calculate_revenue_growth(data)
-                debt_to_equity_ratio = calculate_debt_to_equity_ratio(data)
+                revenue_growth = calculate_revenue_growth(data).mean()
+                debt_to_equity_ratio = calculate_debt_to_equity_ratio(data).mean()
 
                 st.subheader("Additional Financial Metrics")
-                st.write(f"Profit Margin: {profit_margin:.2f}")
-                st.write(f"EBITDA: {ebitda.sum():,.2f}")
-                st.write(f"Revenue Growth Rate: {revenue_growth.mean():.2f}")
-                st.write(f"Debt to Equity Ratio: {debt_to_equity_ratio:.2f}")
+                st.write(f"Average Profit Margin: {profit_margin:.2f}")
+                st.write(f"Total EBITDA: {ebitda.sum():,.2f}")
+                st.write(f"Average Revenue Growth Rate: {revenue_growth:.2f}")
+                st.write(f"Average Debt to Equity Ratio: {debt_to_equity_ratio:.2f}")
 
                 fig_revenue = px.line(data, x=data.index, y='Revenue', title='Historical Revenue')
                 st.plotly_chart(fig_revenue)
@@ -264,10 +264,10 @@ if uploaded_file:
                 fig_ebitda = px.line(data, x=data.index, y=ebitda, title='Historical EBITDA')
                 st.plotly_chart(fig_ebitda)
 
-                fig_profit_margin = px.line(data, x=data.index, y=profit_margin, title='Historical Profit Margin')
+                fig_profit_margin = px.line(data, x=data.index, y=calculate_profit_margin(data), title='Historical Profit Margin')
                 st.plotly_chart(fig_profit_margin)
 
-                fig_debt_equity = px.line(data, x=data.index, y=debt_to_equity_ratio, title='Debt to Equity Ratio')
+                fig_debt_equity = px.line(data, x=data.index, y=calculate_debt_to_equity_ratio(data), title='Debt to Equity Ratio')
                 st.plotly_chart(fig_debt_equity)
 
                 simulations_revenue = monte_carlo_simulation(data['Revenue'].iloc[-1], num_simulations, num_days, vol)
@@ -284,7 +284,7 @@ if uploaded_file:
                 fig_mc_ebitda.update_layout(title='Monte Carlo Simulation - EBITDA', xaxis_title='Day', yaxis_title='EBITDA ($)', template='plotly_white')
                 st.plotly_chart(fig_mc_ebitda)
 
-                simulations_profit_margin = monte_carlo_simulation(profit_margin.iloc[-1], num_simulations, num_days, vol)
+                simulations_profit_margin = monte_carlo_simulation(profit_margin, num_simulations, num_days, vol)
                 fig_mc_profit_margin = go.Figure()
                 for simulation in simulations_profit_margin:
                     fig_mc_profit_margin.add_trace(go.Scatter(x=list(range(num_days + 1)), y=simulation, mode='lines', line=dict(width=1), opacity=0.5))
