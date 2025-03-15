@@ -57,8 +57,41 @@ st.markdown("""
 This application performs an **automated DCF valuation** of a company based on uploaded financial statements or external data. You can also perform **sensitivity analysis**, adjust forecast scenarios, and analyze **industry benchmarks**.
 """)
 
+# Allow user to download the template
+def download_template():
+    """Generate and provide a download link for the template"""
+    template_data = {
+        'Year': ['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5'],
+        'Revenue': [None, None, None, None, None],
+        'Operating Income': [None, None, None, None, None],
+        'Taxes': [None, None, None, None, None],
+        'Depreciation': [None, None, None, None, None],
+        'Capital Expenditures': [None, None, None, None, None],
+        'Changes in Working Capital': [None, None, None, None, None],
+    }
+    
+    df_template = pd.DataFrame(template_data)
+    
+    # Convert the DataFrame to an Excel file and save it to a buffer
+    from io import BytesIO
+    excel_buffer = BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+        df_template.to_excel(writer, index=False, sheet_name='Financial Data')
+    
+    excel_buffer.seek(0)
+    
+    # Return as downloadable file
+    return excel_buffer
+
+st.download_button(
+    label="Download Financial Data Template",
+    data=download_template(),
+    file_name="financial_data_template.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
 # File uploader for financial statement (CSV or Excel)
-uploaded_file = st.file_uploader("Upload your financial statement (CSV/Excel)", type=["csv", "xlsx"])
+uploaded_file = st.file_uploader("Upload your filled financial statement (CSV/Excel)", type=["csv", "xlsx"])
 
 # Data from Yahoo Finance for tickers
 ticker_input = st.text_input('Enter Stock Ticker (e.g., AAPL)', value="AAPL")
@@ -77,7 +110,7 @@ if uploaded_file:
     if uploaded_file.name.endswith('.csv'):
         data = pd.read_csv(uploaded_file)
     else:
-        data = pd.read_excel(uploaded_file)
+        data = pd.read_excel(uploaded_file, sheet_name="Financial Data")
     
     st.write("Uploaded Data Preview:", data.head())
 
