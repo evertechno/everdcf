@@ -10,6 +10,10 @@ from datetime import datetime
 @st.cache_data
 def calculate_fcf(data):
     """Calculate Free Cash Flow (FCF) based on the income statement and cash flow statement"""
+    required_columns = ['Operating Income', 'Taxes', 'Depreciation', 'Capital Expenditures', 'Changes in Working Capital']
+    for col in required_columns:
+        if col not in data.columns:
+            raise KeyError(f"Missing required column: {col}")
     fcf = data['Operating Income'] - data['Taxes'] + data['Depreciation'] - data['Capital Expenditures'] - data['Changes in Working Capital']
     return fcf
 
@@ -33,6 +37,8 @@ def calculate_terminal_value(fcf, growth_rate, discount_rate, method='perpetuity
 @st.cache_data
 def dcf_valuation(fcf, wacc, terminal_value, years):
     """Calculate DCF valuation"""
+    if years > len(fcf):
+        raise ValueError("Forecast years exceed the available data length.")
     discounted_fcf = sum([fcf[i] / (1 + wacc)**(i+1) for i in range(years)])
     discounted_terminal_value = terminal_value / (1 + wacc)**years
     dcf_value = discounted_fcf + discounted_terminal_value
@@ -122,105 +128,111 @@ if uploaded_file:
     
     st.write("Uploaded Data Preview:", data.head())
 
-    # Automatically generate FCF and display financial summary
-    fcf = calculate_fcf(data)
-    st.write(f"Calculated Free Cash Flow: {fcf}")
+    try:
+        # Automatically generate FCF and display financial summary
+        fcf = calculate_fcf(data)
+        st.write(f"Calculated Free Cash Flow: {fcf}")
 
-    # Allow user to input other assumptions for the valuation (Cost of Equity, Cost of Debt, etc.)
-    # Ensuring matching numeric types to fix the "StreamlitMixedNumericTypesError"
-    
-    # Set types consistently: make sure to use floats when needed
-    cost_of_equity = st.number_input('Enter Cost of Equity (%)', min_value=0.0, max_value=100.0, value=8.0, step=0.1, format="%.2f")
-    cost_of_debt = st.number_input('Enter Cost of Debt (%)', min_value=0.0, max_value=100.0, value=4.0, step=0.1, format="%.2f")
-    equity_value = st.number_input('Enter Total Equity Value ($)', min_value=1.0, value=500000000.0, format="%.2f")
-    debt_value = st.number_input('Enter Total Debt Value ($)', min_value=1.0, value=200000000.0, format="%.2f")
-    tax_rate = st.number_input('Enter Tax Rate (%)', min_value=0.0, max_value=100.0, value=25.0, step=0.1, format="%.2f") / 100
-    growth_rate = st.number_input('Enter Perpetuity Growth Rate (%)', min_value=0.0, max_value=100.0, value=2.5, step=0.1, format="%.2f") / 100
-    forecast_years = int(st.number_input('Enter Number of Forecast Years', min_value=1, max_value=10, value=5, format="%.0f"))
+        # Allow user to input other assumptions for the valuation (Cost of Equity, Cost of Debt, etc.)
+        # Ensuring matching numeric types to fix the "StreamlitMixedNumericTypesError"
+        
+        # Set types consistently: make sure to use floats when needed
+        cost_of_equity = st.number_input('Enter Cost of Equity (%)', min_value=0.0, max_value=100.0, value=8.0, step=0.1, format="%.2f")
+        cost_of_debt = st.number_input('Enter Cost of Debt (%)', min_value=0.0, max_value=100.0, value=4.0, step=0.1, format="%.2f")
+        equity_value = st.number_input('Enter Total Equity Value ($)', min_value=1.0, value=500000000.0, format="%.2f")
+        debt_value = st.number_input('Enter Total Debt Value ($)', min_value=1.0, value=200000000.0, format="%.2f")
+        tax_rate = st.number_input('Enter Tax Rate (%)', min_value=0.0, max_value=100.0, value=25.0, step=0.1, format="%.2f") / 100
+        growth_rate = st.number_input('Enter Perpetuity Growth Rate (%)', min_value=0.0, max_value=100.0, value=2.5, step=0.1, format="%.2f") / 100
+        forecast_years = int(st.number_input('Enter Number of Forecast Years', min_value=1, max_value=10, value=5, format="%.0f"))
 
-    # Calculate WACC
-    wacc = calculate_wacc(cost_of_equity / 100, cost_of_debt / 100, equity_value, debt_value, tax_rate)
+        # Calculate WACC
+        wacc = calculate_wacc(cost_of_equity / 100, cost_of_debt / 100, equity_value, debt_value, tax_rate)
 
-    # Calculate Terminal Value
-    terminal_value = calculate_terminal_value(fcf.iloc[-1], growth_rate, wacc)
+        # Calculate Terminal Value
+        terminal_value = calculate_terminal_value(fcf.iloc[-1], growth_rate, wacc)
 
-    # DCF Valuation
-    dcf_value = dcf_valuation(fcf, wacc, terminal_value, forecast_years)
+        # DCF Valuation
+        dcf_value = dcf_valuation(fcf, wacc, terminal_value, forecast_years)
 
-    st.write(f"Calculated WACC: {wacc * 100:.2f}%")
-    st.write(f"Calculated Terminal Value: ${terminal_value:,.2f}")
-    st.write(f"DCF Valuation: ${dcf_value:,.2f}")
+        st.write(f"Calculated WACC: {wacc * 100:.2f}%")
+        st.write(f"Calculated Terminal Value: ${terminal_value:,.2f}")
+        st.write(f"DCF Valuation: ${dcf_value:,.2f}")
 
-    # Sensitivity Analysis
-    wacc_range = np.linspace(0.05, 0.15, 11)
-    growth_range = np.linspace(0.01, 0.10, 10)
-    sensitivity_df = sensitivity_analysis(fcf, wacc_range, growth_range, forecast_years)
+        # Sensitivity Analysis
+        wacc_range = np.linspace(0.05, 0.15, 11)
+        growth_range = np.linspace(0.01, 0.10, 10)
+        sensitivity_df = sensitivity_analysis(fcf, wacc_range, growth_range, forecast_years)
 
-    # Plot Sensitivity Analysis
-    sensitivity_fig = plot_sensitivity_analysis(sensitivity_df)
-    st.plotly_chart(sensitivity_fig)
+        # Plot Sensitivity Analysis
+        sensitivity_fig = plot_sensitivity_analysis(sensitivity_df)
+        st.plotly_chart(sensitivity_fig)
 
-    # Enhanced Financial Projections Visualization
-    st.subheader("Financial Projections & Valuation")
+        # Enhanced Financial Projections Visualization
+        st.subheader("Financial Projections & Valuation")
 
-    # Plot Free Cash Flow over the forecast years with bar chart and line chart
-    years = np.arange(1, forecast_years + 1)
-    fcf_forecast = fcf.head(forecast_years).values  # Use first n years' FCF
-    fig_fcf = plt.figure(figsize=(10, 6))
-    plt.bar(years, fcf_forecast, color='skyblue', label="Free Cash Flow")
-    plt.plot(years, fcf_forecast, marker='o', color='red', label="Free Cash Flow (Line)")
-    plt.title('Free Cash Flow Projections')
-    plt.xlabel('Year')
-    plt.ylabel('FCF ($)')
-    plt.grid(True)
-    plt.legend()
-    st.pyplot(fig_fcf)
+        # Plot Free Cash Flow over the forecast years with bar chart and line chart
+        years = np.arange(1, forecast_years + 1)
+        fcf_forecast = fcf.head(forecast_years).values  # Use first n years' FCF
+        fig_fcf = plt.figure(figsize=(10, 6))
+        plt.bar(years, fcf_forecast, color='skyblue', label="Free Cash Flow")
+        plt.plot(years, fcf_forecast, marker='o', color='red', label="Free Cash Flow (Line)")
+        plt.title('Free Cash Flow Projections')
+        plt.xlabel('Year')
+        plt.ylabel('FCF ($)')
+        plt.grid(True)
+        plt.legend()
+        st.pyplot(fig_fcf)
 
-    # Plot DCF Valuation
-    fig_dcf = px.bar(x=[f'DCF Value'], y=[dcf_value], title='DCF Valuation', labels={'x': 'Valuation Type', 'y': 'Value ($)'})
-    st.plotly_chart(fig_dcf)
+        # Plot DCF Valuation
+        fig_dcf = px.bar(x=[f'DCF Value'], y=[dcf_value], title='DCF Valuation', labels={'x': 'Valuation Type', 'y': 'Value ($)'})
+        st.plotly_chart(fig_dcf)
 
-    # Financial Metrics (Bar chart comparison of key financial metrics)
-    st.subheader("Key Financial Metrics")
+        # Financial Metrics (Bar chart comparison of key financial metrics)
+        st.subheader("Key Financial Metrics")
 
-    # Check if 'Market Capitalization' exists or use manual input
-    if 'Market Capitalization' in data.columns:
-        market_cap = data['Market Capitalization'].sum()
-    else:
-        market_cap = st.number_input('Enter Market Capitalization ($)', min_value=1.0, value=1000000000.0, format="%.2f")
+        # Check if 'Market Capitalization' exists or use manual input
+        if 'Market Capitalization' in data.columns:
+            market_cap = data['Market Capitalization'].sum()
+        else:
+            market_cap = st.number_input('Enter Market Capitalization ($)', min_value=1.0, value=1000000000.0, format="%.2f")
 
-    # Check if 'Net Income' exists in the uploaded data, and if not, prompt for manual input
-    if 'Net Income' in data.columns:
-        net_income = data['Net Income'].sum()  # Sum the Net Income for simplicity
-    else:
-        net_income = st.number_input('Enter Net Income ($)', min_value=1.0, value=100000000.0, format="%.2f")
+        # Check if 'Net Income' exists in the uploaded data, and if not, prompt for manual input
+        if 'Net Income' in data.columns:
+            net_income = data['Net Income'].sum()  # Sum the Net Income for simplicity
+        else:
+            net_income = st.number_input('Enter Net Income ($)', min_value=1.0, value=100000000.0, format="%.2f")
 
-    # Calculate P/E ratio
-    pe_ratio = market_cap / net_income  # Price/Earnings ratio
-    debt_equity_ratio = data['Total Debt'].sum() / data['Total Equity'].sum() if 'Total Debt' in data.columns and 'Total Equity' in data.columns else 0
+        # Calculate P/E ratio
+        pe_ratio = market_cap / net_income  # Price/Earnings ratio
+        debt_equity_ratio = data['Total Debt'].sum() / data['Total Equity'].sum() if 'Total Debt' in data.columns and 'Total Equity' in data.columns else 0
 
-    st.write(f"P/E Ratio: {pe_ratio:.2f}")
-    st.write(f"Debt/Equity Ratio: {debt_equity_ratio:.2f}")
+        st.write(f"P/E Ratio: {pe_ratio:.2f}")
+        st.write(f"Debt/Equity Ratio: {debt_equity_ratio:.2f}")
 
-    # Display other financial metrics
-    st.subheader("DCF Assumptions")
-    st.write(f"Cost of Equity: {cost_of_equity}%")
-    st.write(f"Cost of Debt: {cost_of_debt}%")
-    st.write(f"Tax Rate: {tax_rate * 100}%")
-    st.write(f"Perpetuity Growth Rate: {growth_rate * 100}%")
+        # Display other financial metrics
+        st.subheader("DCF Assumptions")
+        st.write(f"Cost of Equity: {cost_of_equity}%")
+        st.write(f"Cost of Debt: {cost_of_debt}%")
+        st.write(f"Tax Rate: {tax_rate * 100}%")
+        st.write(f"Perpetuity Growth Rate: {growth_rate * 100}%")
 
-    # Downloadable Results (optional)
-    df_results = pd.DataFrame({
-        "Metric": ["DCF Value", "Terminal Value", "WACC", "FCF (Year 1)", "FCF (Year 2)", "FCF (Year 3)", "FCF (Year 4)", "FCF (Year 5)"],
-        "Value": [dcf_value, terminal_value, wacc * 100, *fcf_forecast]
-    })
-    
-    st.download_button(
-        label="Download Valuation Results",
-        data=df_results.to_csv(index=False),
-        file_name="dcf_valuation_results.csv",
-        mime="text/csv"
-    )
+        # Downloadable Results (optional)
+        df_results = pd.DataFrame({
+            "Metric": ["DCF Value", "Terminal Value", "WACC", "FCF (Year 1)", "FCF (Year 2)", "FCF (Year 3)", "FCF (Year 4)", "FCF (Year 5)"],
+            "Value": [dcf_value, terminal_value, wacc * 100, *fcf_forecast]
+        })
+        
+        st.download_button(
+            label="Download Valuation Results",
+            data=df_results.to_csv(index=False),
+            file_name="dcf_valuation_results.csv",
+            mime="text/csv"
+        )
+
+    except KeyError as e:
+        st.error(f"Error: {e}")
+    except ValueError as e:
+        st.error(f"Error: {e}")
 
 else:
     st.info("Please upload a financial statement CSV or Excel file to proceed.")
