@@ -315,7 +315,7 @@ if st.session_state['authenticated']:
                 for key, value in assumptions.items():
                     st.write(f"{key}: {value}")
 
-                # Historical Data Analysis
+                                # Historical Data Analysis
                 ticker = st.text_input("Enter Stock Ticker for Historical Data Analysis")
                 if ticker:
                     historical_data = fetch_historical_data(ticker)
@@ -330,4 +330,5 @@ if st.session_state['authenticated']:
                     fig_trend = go.Figure()
                     fig_trend.add_trace(go.Scatter(x=historical_data.index, y=historical_data['Close'], mode='lines', name='Historical Close'))
                     fig_trend.add_trace(go.Scatter(x=historical_data.index, y=trend, mode='lines', name='Trend', line=dict(dash='dash')))
-                    fig_trend.update_layout(title='Historical Data and Trend Analysis', xaxis_title='Year', yaxis_title='Close Price ($)', template
+                    fig_trend.update_layout(title='Historical Data and Trend Analysis', xaxis_title='Year', yaxis_title='Close Price ($)', template='plotly_white')
+                    st.plotly_chart(fig_trend)
