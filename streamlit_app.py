@@ -136,173 +136,149 @@ st.markdown("""
 This application performs an **automated DCF valuation** of a company based on uploaded financial statements. You can also perform **sensitivity analysis**, adjust forecast scenarios, and analyze **industry benchmarks**.
 """)
 
-if 'authenticated' not in st.session_state:
-    st.session_state['authenticated'] = False
+st.download_button(
+    label="Download Financial Data Template",
+    data=download_template(),
+    file_name="financial_data_template.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
-if not st.session_state['authenticated']:
-    user = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if user == "admin" and password == "password":
-            st.session_state['authenticated'] = True
+uploaded_file = st.file_uploader("Upload your filled financial statement (CSV/Excel)", type=["csv", "xlsx"])
+
+if uploaded_file:
+    if uploaded_file.name.endswith('.csv'):
+        data = pd.read_csv(uploaded_file)
+    else:
+        data = pd.read_excel(uploaded_file, sheet_name="Financial Data")
+
+    st.write("Uploaded Data Preview:", data.head())
+
+    try:
+        fcf = calculate_fcf(data)
+        st.write(f"Calculated Free Cash Flow: {fcf}")
+
+        cost_of_equity = st.number_input('Enter Cost of Equity (%)', min_value=0.0, max_value=100.0, value=8.0, step=0.1, format="%.2f")
+        cost_of_debt = st.number_input('Enter Cost of Debt (%)', min_value=0.0, max_value=100.0, value=4.0, step=0.1, format="%.2f")
+        equity_value = st.number_input('Enter Total Equity Value ($)', min_value=1.0, value=500000000.0, format="%.2f")
+        debt_value = st.number_input('Enter Total Debt Value ($)', min_value=1.0, value=200000000.0, format="%.2f")
+        tax_rate = st.number_input('Enter Tax Rate (%)', min_value=0.0, max_value=100.0, value=25.0, step=0.1, format="%.2f") / 100
+        growth_rate = st.number_input('Enter Perpetuity Growth Rate (%)', min_value=0.0, max_value=100.0, value=2.5, step=0.1, format="%.2f") / 100
+        forecast_years = int(st.number_input('Enter Number of Forecast Years', min_value=1, max_value=10, value=5, format="%.0f"))
+        terminal_value_method = st.selectbox('Select Terminal Value Method', ['perpetuity', 'exit_multiple'])
+
+        if forecast_years > len(fcf):
+            st.error("Error: Forecast years exceed the available data length. Please enter a valid number of forecast years.")
         else:
-            st.error("Invalid credentials")
+            wacc = calculate_wacc(cost_of_equity / 100, cost_of_debt / 100, equity_value, debt_value, tax_rate)
+            terminal_value = calculate_terminal_value(fcf.iloc[-1], growth_rate, wacc, method=terminal_value_method)
+            dcf_value = dcf_valuation(fcf, wacc, terminal_value, forecast_years)
 
-if st.session_state['authenticated']:
-    hide_streamlit_style = """
-        <style>
-            .css-1r6p8d1 {display: none;} /* Hides the Streamlit logo in the top left */
-            .css-1v3t3fg {display: none;} /* Hides the star button */
-            .css-1r6p8d1 .st-ae {display: none;} /* Hides the Streamlit logo */
-            header {visibility: hidden;} /* Hides the header */
-            .css-1tqja98 {visibility: hidden;} /* Hides the header bar */
-        </style>
-    """
-    st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+            st.write(f"Calculated WACC: {wacc * 100:.2f}%")
+            st.write(f"Calculated Terminal Value: ${terminal_value:,.2f}")
+            st.write(f"DCF Valuation: ${dcf_value:,.2f}")
 
-    st.download_button(
-        label="Download Financial Data Template",
-        data=download_template(),
-        file_name="financial_data_template.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+            wacc_range = np.linspace(0.05, 0.15, 11)
+            growth_range = np.linspace(0.01, 0.10, 10)
+            sensitivity_df = sensitivity_analysis(fcf, wacc_range, growth_range, forecast_years)
+            sensitivity_fig = plot_sensitivity_analysis(sensitivity_df)
+            st.plotly_chart(sensitivity_fig)
 
-    uploaded_file = st.file_uploader("Upload your filled financial statement (CSV/Excel)", type=["csv", "xlsx"])
+            st.subheader("Financial Projections & Valuation")
+            years = np.arange(1, forecast_years + 1)
+            fcf_forecast = fcf.head(forecast_years).values
+            fig_fcf = go.Figure()
+            fig_fcf.add_trace(go.Bar(x=years, y=fcf_forecast, name="Free Cash Flow", marker_color='skyblue'))
+            fig_fcf.add_trace(go.Scatter(x=years, y=fcf_forecast, mode='lines+markers', name="Free Cash Flow (Line)", marker=dict(color='red')))
+            fig_fcf.update_layout(title='Free Cash Flow Projections', xaxis_title='Year', yaxis_title='FCF ($)', template='plotly_white')
+            st.plotly_chart(fig_fcf)
 
-    if uploaded_file:
-        if uploaded_file.name.endswith('.csv'):
-            data = pd.read_csv(uploaded_file)
-        else:
-            data = pd.read_excel(uploaded_file, sheet_name="Financial Data")
+            fig_dcf = px.bar(x=[f'DCF Value'], y=[dcf_value], title='DCF Valuation', labels={'x': 'Valuation Type', 'y': 'Value ($)'})
+            st.plotly_chart(fig_dcf)
 
-        st.write("Uploaded Data Preview:", data.head())
-
-        try:
-            fcf = calculate_fcf(data)
-            st.write(f"Calculated Free Cash Flow: {fcf}")
-
-            cost_of_equity = st.number_input('Enter Cost of Equity (%)', min_value=0.0, max_value=100.0, value=8.0, step=0.1, format="%.2f")
-            cost_of_debt = st.number_input('Enter Cost of Debt (%)', min_value=0.0, max_value=100.0, value=4.0, step=0.1, format="%.2f")
-            equity_value = st.number_input('Enter Total Equity Value ($)', min_value=1.0, value=500000000.0, format="%.2f")
-            debt_value = st.number_input('Enter Total Debt Value ($)', min_value=1.0, value=200000000.0, format="%.2f")
-            tax_rate = st.number_input('Enter Tax Rate (%)', min_value=0.0, max_value=100.0, value=25.0, step=0.1, format="%.2f") / 100
-            growth_rate = st.number_input('Enter Perpetuity Growth Rate (%)', min_value=0.0, max_value=100.0, value=2.5, step=0.1, format="%.2f") / 100
-            forecast_years = int(st.number_input('Enter Number of Forecast Years', min_value=1, max_value=10, value=5, format="%.0f"))
-            terminal_value_method = st.selectbox('Select Terminal Value Method', ['perpetuity', 'exit_multiple'])
-
-            if forecast_years > len(fcf):
-                st.error("Error: Forecast years exceed the available data length. Please enter a valid number of forecast years.")
+            st.subheader("Key Financial Metrics")
+            if 'Market Capitalization' in data.columns:
+                market_cap = data['Market Capitalization'].sum()
             else:
-                wacc = calculate_wacc(cost_of_equity / 100, cost_of_debt / 100, equity_value, debt_value, tax_rate)
-                terminal_value = calculate_terminal_value(fcf.iloc[-1], growth_rate, wacc, method=terminal_value_method)
-                dcf_value = dcf_valuation(fcf, wacc, terminal_value, forecast_years)
+                market_cap = st.number_input('Enter Market Capitalization ($)', min_value=1.0, value=1000000000.0, format="%.2f")
 
-                st.write(f"Calculated WACC: {wacc * 100:.2f}%")
-                st.write(f"Calculated Terminal Value: ${terminal_value:,.2f}")
-                st.write(f"DCF Valuation: ${dcf_value:,.2f}")
+            if 'Net Income' in data.columns:
+                net_income = data['Net Income'].sum()
+            else:
+                net_income = st.number_input('Enter Net Income ($)', min_value=1.0, value=100000000.0, format="%.2f")
 
-                wacc_range = np.linspace(0.05, 0.15, 11)
-                growth_range = np.linspace(0.01, 0.10, 10)
-                sensitivity_df = sensitivity_analysis(fcf, wacc_range, growth_range, forecast_years)
-                sensitivity_fig = plot_sensitivity_analysis(sensitivity_df)
-                st.plotly_chart(sensitivity_fig)
+            pe_ratio = market_cap / net_income
+            debt_equity_ratio = data['Total Debt'].sum() / data['Total Equity'].sum() if 'Total Debt' in data.columns and 'Total Equity' in data.columns else 0
 
-                st.subheader("Financial Projections & Valuation")
-                years = np.arange(1, forecast_years + 1)
-                fcf_forecast = fcf.head(forecast_years).values
-                fig_fcf = go.Figure()
-                fig_fcf.add_trace(go.Bar(x=years, y=fcf_forecast, name="Free Cash Flow", marker_color='skyblue'))
-                fig_fcf.add_trace(go.Scatter(x=years, y=fcf_forecast, mode='lines+markers', name="Free Cash Flow (Line)", marker=dict(color='red')))
-                fig_fcf.update_layout(title='Free Cash Flow Projections', xaxis_title='Year', yaxis_title='FCF ($)', template='plotly_white')
-                st.plotly_chart(fig_fcf)
+            st.write(f"P/E Ratio: {pe_ratio:.2f}")
+            st.write(f"Debt/Equity Ratio: {debt_equity_ratio:.2f}")
 
-                fig_dcf = px.bar(x=[f'DCF Value'], y=[dcf_value], title='DCF Valuation', labels={'x': 'Valuation Type', 'y': 'Value ($)'})
-                st.plotly_chart(fig_dcf)
+            st.subheader("DCF Assumptions")
+            assumptions = {
+                "Cost of Equity": f"{cost_of_equity}%",
+                "Cost of Debt": f"{cost_of_debt}%",
+                "Tax Rate": f"{tax_rate * 100}%",
+                "Perpetuity Growth Rate": f"{growth_rate * 100}%",
+                "Terminal Value Method": terminal_value_method
+            }
+            for key, value in assumptions.items():
+                st.write(f"{key}: {value}")
 
-                st.subheader("Key Financial Metrics")
-                if 'Market Capitalization' in data.columns:
-                    market_cap = data['Market Capitalization'].sum()
-                else:
-                    market_cap = st.number_input('Enter Market Capitalization ($)', min_value=1.0, value=1000000000.0, format="%.2f")
+            ticker = st.text_input("Enter Stock Ticker for Historical Data Analysis")
+            if ticker:
+                historical_data = fetch_historical_data()
+                st.write("Historical Data:", historical_data)
+                x = np.array(historical_data.index).reshape(-1, 1)
+                y = historical_data['Close'].values
+                model = LinearRegression().fit(x, y)
+                trend = model.predict(x)
+                fig_trend = go.Figure()
+                fig_trend.add_trace(go.Scatter(x=historical_data.index, y=historical_data['Close'], mode='lines', name='Historical Close'))
+                fig_trend.add_trace(go.Scatter(x=historical_data.index, y=trend, mode='lines', name='Trend', line=dict(dash='dash')))
+                fig_trend.update_layout(title='Historical Data and Trend Analysis', xaxis_title='Year', yaxis_title='Close Price ($)', template='plotly_white')
+                st.plotly_chart(fig_trend)
 
-                if 'Net Income' in data.columns:
-                    net_income = data['Net Income'].sum()
-                else:
-                    net_income = st.number_input('Enter Net Income ($)', min_value=1.0, value=100000000.0, format="%.2f")
+            peer_tickers = st.text_input("Enter Peer Tickers for Industry Comparison (comma separated)").split(',')
+            if ticker and peer_tickers:
+                company_data, peer_data = industry_comparison()
+                st.write("Company Data:", company_data)
+                for peer_ticker, data in peer_data.items():
+                    st.write(f"Peer Data ({peer_ticker}):", data)
 
-                pe_ratio = market_cap / net_income
-                debt_equity_ratio = data['Total Debt'].sum() / data['Total Equity'].sum() if 'Total Debt' in data.columns and 'Total Equity' in data.columns else 0
+            initial_value = st.number_input("Enter Initial Value for Monte Carlo Simulation", min_value=1.0, value=100.0)
+            num_simulations = st.number_input("Enter Number of Simulations", min_value=1, value=100)
+            num_days = st.number_input("Enter Number of Days", min_value=1, value=252)
+            vol = st.number_input("Enter Volatility (%)", min_value=0.0, max_value=100.0, value=20.0, step=0.1) / 100
+            simulations = monte_carlo_simulation(initial_value, num_simulations, num_days, vol)
+            fig_mc = go.Figure()
+            for simulation in simulations:
+                fig_mc.add_trace(go.Scatter(x=list(range(num_days + 1)), y=simulation, mode='lines', line=dict(width=1), opacity=0.5))
+            fig_mc.update_layout(title='Monte Carlo Simulation', xaxis_title='Day', yaxis_title='Price ($)', template='plotly_white')
+            st.plotly_chart(fig_mc)
 
-                st.write(f"P/E Ratio: {pe_ratio:.2f}")
-                st.write(f"Debt/Equity Ratio: {debt_equity_ratio:.2f}")
+            df_results = pd.DataFrame({
+                "Metric": ["DCF Value", "Terminal Value", "WACC", "FCF (Year 1)", "FCF (Year 2)", "FCF (Year 3)", "FCF (Year 4)", "FCF (Year 5)"],
+                "Value": [dcf_value, terminal_value, wacc * 100, *fcf_forecast]
+            })
 
-                st.subheader("DCF Assumptions")
-                assumptions = {
-                    "Cost of Equity": f"{cost_of_equity}%",
-                    "Cost of Debt": f"{cost_of_debt}%",
-                    "Tax Rate": f"{tax_rate * 100}%",
-                    "Perpetuity Growth Rate": f"{growth_rate * 100}%",
-                    "Terminal Value Method": terminal_value_method
-                }
-                for key, value in assumptions.items():
-                    st.write(f"{key}: {value}")
+            st.download_button(
+                label="Download Valuation Results (CSV)",
+                data=df_results.to_csv(index=False),
+                file_name="dcf_valuation_results.csv",
+                mime="text/csv"
+            )
 
-                ticker = st.text_input("Enter Stock Ticker for Historical Data Analysis")
-                if ticker:
-                    historical_data = fetch_historical_data()
-                    st.write("Historical Data:", historical_data)
-                    x = np.array(historical_data.index).reshape(-1, 1)
-                    y = historical_data['Close'].values
-                    model = LinearRegression().fit(x, y)
-                    trend = model.predict(x)
-                    fig_trend = go.Figure()
-                    fig_trend.add_trace(go.Scatter(x=historical_data.index, y=historical_data['Close'], mode='lines', name='Historical Close'))
-                    fig_trend.add_trace(go.Scatter(x=historical_data.index, y=trend, mode='lines', name='Trend', line=dict(dash='dash')))
-                    fig_trend.update_layout(title='Historical Data and Trend Analysis', xaxis_title='Year', yaxis_title='Close Price ($)', template='plotly_white')
-                    st.plotly_chart(fig_trend)
+            pdf_report = generate_pdf_report(dcf_value, terminal_value, wacc, fcf_forecast, market_cap, net_income, pe_ratio, debt_equity_ratio, assumptions)
+            st.download_button(
+                label="Download Valuation Report (PDF)",
+                data=pdf_report,
+                file_name="dcf_valuation_report.pdf",
+                mime="application/pdf"
+            )
 
-                peer_tickers = st.text_input("Enter Peer Tickers for Industry Comparison (comma separated)").split(',')
-                if ticker and peer_tickers:
-                    company_data, peer_data = industry_comparison()
-                    st.write("Company Data:", company_data)
-                    for peer_ticker, data in peer_data.items():
-                        st.write(f"Peer Data ({peer_ticker}):", data)
-
-                initial_value = st.number_input("Enter Initial Value for Monte Carlo Simulation", min_value=1.0, value=100.0)
-                num_simulations = st.number_input("Enter Number of Simulations", min_value=1, value=100)
-                num_days = st.number_input("Enter Number of Days", min_value=1, value=252)
-                vol = st.number_input("Enter Volatility (%)", min_value=0.0, max_value=100.0, value=20.0, step=0.1) / 100
-                simulations = monte_carlo_simulation(initial_value, num_simulations, num_days, vol)
-                fig_mc = go.Figure()
-                for simulation in simulations:
-                    fig_mc.add_trace(go.Scatter(x=list(range(num_days + 1)), y=simulation, mode='lines', line=dict(width=1), opacity=0.5))
-                fig_mc.update_layout(title='Monte Carlo Simulation', xaxis_title='Day', yaxis_title='Price ($)', template='plotly_white')
-                st.plotly_chart(fig_mc)
-
-                df_results = pd.DataFrame({
-                    "Metric": ["DCF Value", "Terminal Value", "WACC", "FCF (Year 1)", "FCF (Year 2)", "FCF (Year 3)", "FCF (Year 4)", "FCF (Year 5)"],
-                    "Value": [dcf_value, terminal_value, wacc * 100, *fcf_forecast]
-                })
-
-                st.download_button(
-                    label="Download Valuation Results (CSV)",
-                    data=df_results.to_csv(index=False),
-                    file_name="dcf_valuation_results.csv",
-                    mime="text/csv"
-                )
-
-                pdf_report = generate_pdf_report(dcf_value, terminal_value, wacc, fcf_forecast, market_cap, net_income, pe_ratio, debt_equity_ratio, assumptions)
-                st.download_button(
-                    label="Download Valuation Report (PDF)",
-                    data=pdf_report,
-                    file_name="dcf_valuation_report.pdf",
-                    mime="application/pdf"
-                )
-
-        except KeyError as e:
-            st.error(f"Error: {e}")
-        except ValueError as e:
-            st.error(f"Error: {e}")
+    except KeyError as e:
+        st.error(f"Error: {e}")
+    except ValueError as e:
+        st.error(f"Error: {e}")
 
 else:
     st.info("Please upload a financial statement CSV or Excel file to proceed.")
