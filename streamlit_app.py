@@ -3,8 +3,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
+import plotly.graph_objects as go
 from io import BytesIO
 from datetime import datetime
+from fpdf import FPDF
 
 # Caching functions to improve performance
 @st.cache_data
@@ -64,6 +66,33 @@ def plot_sensitivity_analysis(sensitivity_df):
                         labels={'WACC': 'WACC (%)', 'Growth Rate': 'Growth Rate (%)', 'DCF Value': 'DCF Value ($)'})
     return fig
 
+@st.cache_data
+def generate_pdf_report(dcf_value, terminal_value, wacc, fcf_forecast, market_cap, net_income, pe_ratio, debt_equity_ratio, assumptions):
+    """Generate a PDF report of the valuation results"""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size = 12)
+
+    pdf.cell(200, 10, txt = "DCF Valuation Report", ln = True, align = 'C')
+
+    pdf.cell(200, 10, txt = f"DCF Value: ${dcf_value:,.2f}", ln = True)
+    pdf.cell(200, 10, txt = f"Terminal Value: ${terminal_value:,.2f}", ln = True)
+    pdf.cell(200, 10, txt = f"WACC: {wacc * 100:.2f}%", ln = True)
+    pdf.cell(200, 10, txt = "Free Cash Flow Forecast:", ln = True)
+    for year, fcf in enumerate(fcf_forecast, start=1):
+        pdf.cell(200, 10, txt = f"Year {year}: ${fcf:,.2f}", ln = True)
+
+    pdf.cell(200, 10, txt = f"Market Capitalization: ${market_cap:,.2f}", ln = True)
+    pdf.cell(200, 10, txt = f"Net Income: ${net_income:,.2f}", ln = True)
+    pdf.cell(200, 10, txt = f"P/E Ratio: {pe_ratio:.2f}", ln = True)
+    pdf.cell(200, 10, txt = f"Debt/Equity Ratio: {debt_equity_ratio:.2f}", ln = True)
+    
+    pdf.cell(200, 10, txt = "Assumptions:", ln = True)
+    for key, value in assumptions.items():
+        pdf.cell(200, 10, txt = f"{key}: {value}", ln = True)
+
+    return pdf.output(dest="S").encode("latin1")
+
 def download_template():
     """Generate and provide a download link for the template"""
     template_data = {
@@ -90,6 +119,7 @@ def download_template():
     return excel_buffer
 
 # Streamlit interface
+st.set_page_config(page_title="Automated DCF Valuation", layout="wide")
 st.title('Automated DCF Valuation')
 
 st.markdown("""
@@ -144,6 +174,7 @@ if uploaded_file:
         tax_rate = st.number_input('Enter Tax Rate (%)', min_value=0.0, max_value=100.0, value=25.0, step=0.1, format="%.2f") / 100
         growth_rate = st.number_input('Enter Perpetuity Growth Rate (%)', min_value=0.0, max_value=100.0, value=2.5, step=0.1, format="%.2f") / 100
         forecast_years = int(st.number_input('Enter Number of Forecast Years', min_value=1, max_value=10, value=5, format="%.0f"))
+        terminal_value_method = st.selectbox('Select Terminal Value Method', ['perpetuity', 'exit_multiple'])
 
         # Validate forecast years
         if forecast_years > len(fcf):
@@ -153,7 +184,7 @@ if uploaded_file:
             wacc = calculate_wacc(cost_of_equity / 100, cost_of_debt / 100, equity_value, debt_value, tax_rate)
 
             # Calculate Terminal Value
-            terminal_value = calculate_terminal_value(fcf.iloc[-1], growth_rate, wacc)
+            terminal_value = calculate_terminal_value(fcf.iloc[-1], growth_rate, wacc, method=terminal_value_method)
 
             # DCF Valuation
             dcf_value = dcf_valuation(fcf, wacc, terminal_value, forecast_years)
@@ -177,15 +208,11 @@ if uploaded_file:
             # Plot Free Cash Flow over the forecast years with bar chart and line chart
             years = np.arange(1, forecast_years + 1)
             fcf_forecast = fcf.head(forecast_years).values  # Use first n years' FCF
-            fig_fcf = plt.figure(figsize=(10, 6))
-            plt.bar(years, fcf_forecast, color='skyblue', label="Free Cash Flow")
-            plt.plot(years, fcf_forecast, marker='o', color='red', label="Free Cash Flow (Line)")
-            plt.title('Free Cash Flow Projections')
-            plt.xlabel('Year')
-            plt.ylabel('FCF ($)')
-            plt.grid(True)
-            plt.legend()
-            st.pyplot(fig_fcf)
+            fig_fcf = go.Figure()
+            fig_fcf.add_trace(go.Bar(x=years, y=fcf_forecast, name="Free Cash Flow", marker_color='skyblue'))
+            fig_fcf.add_trace(go.Scatter(x=years, y=fcf_forecast, mode='lines+markers', name="Free Cash Flow (Line)", marker=dict(color='red')))
+            fig_fcf.update_layout(title='Free Cash Flow Projections', xaxis_title='Year', yaxis_title='FCF ($)', template='plotly_white')
+            st.plotly_chart(fig_fcf)
 
             # Plot DCF Valuation
             fig_dcf = px.bar(x=[f'DCF Value'], y=[dcf_value], title='DCF Valuation', labels={'x': 'Valuation Type', 'y': 'Value ($)'})
@@ -215,10 +242,24 @@ if uploaded_file:
 
             # Display other financial metrics
             st.subheader("DCF Assumptions")
-            st.write(f"Cost of Equity: {cost_of_equity}%")
-            st.write(f"Cost of Debt: {cost_of_debt}%")
-            st.write(f"Tax Rate: {tax_rate * 100}%")
-            st.write(f"Perpetuity Growth Rate: {growth_rate * 100}%")
+            assumptions = {
+                "Cost of Equity": f"{cost_of_equity}%",
+                "Cost of Debt": f"{cost_of_debt}%",
+                "Tax Rate": f"{tax_rate * 100}%",
+                "Perpetuity Growth Rate": f"{growth_rate * 100}%",
+                "Terminal Value Method": terminal_value_method
+            }
+            for key, value in assumptions.items():
+                st.write(f"{key}: {value}")
+
+            # Downloadable PDF Report
+            pdf_report = generate_pdf_report(dcf_value, terminal_value, wacc, fcf_forecast, market_cap, net_income, pe_ratio, debt_equity_ratio, assumptions)
+            st.download_button(
+                label="Download Valuation Report (PDF)",
+                data=pdf_report,
+                file_name="dcf_valuation_report.pdf",
+                mime="application/pdf"
+            )
 
             # Downloadable Results (optional)
             df_results = pd.DataFrame({
@@ -227,7 +268,7 @@ if uploaded_file:
             })
             
             st.download_button(
-                label="Download Valuation Results",
+                label="Download Valuation Results (CSV)",
                 data=df_results.to_csv(index=False),
                 file_name="dcf_valuation_results.csv",
                 mime="text/csv"
