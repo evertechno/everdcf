@@ -107,6 +107,26 @@ def calculate_financial_ratios(data):
     }
     return ratios
 
+@st.cache_data
+def calculate_profit_margin(data):
+    return data['Net Income'] / data['Revenue']
+
+@st.cache_data
+def calculate_ebitda(data):
+    return data['Operating Income'] + data['Depreciation']
+
+@st.cache_data
+def calculate_revenue_growth(data):
+    return data['Revenue'].pct_change()
+
+@st.cache_data
+def calculate_debt_to_equity_ratio(data):
+    return data['Total Debt'] / data['Total Equity']
+
+@st.cache_data
+def calculate_pe_ratio(market_cap, net_income):
+    return market_cap / net_income
+
 def download_template():
     template_data = {
         'Year': ['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5'],
@@ -116,6 +136,9 @@ def download_template():
         'Depreciation': [None, None, None, None, None],
         'Capital Expenditures': [None, None, None, None, None],
         'Changes in Working Capital': [None, None, None, None, None],
+        'Net Income': [None, None, None, None, None],
+        'Total Debt': [None, None, None, None, None],
+        'Total Equity': [None, None, None, None, None]
     }
 
     df_template = pd.DataFrame(template_data)
@@ -219,16 +242,49 @@ if uploaded_file:
             for key, value in assumptions.items():
                 st.write(f"{key}: {value}")
 
-            initial_value = st.number_input("Enter Initial Value for Monte Carlo Simulation", min_value=1.0, value=100.0)
-            num_simulations = st.number_input("Enter Number of Simulations", min_value=1, value=100)
-            num_days = st.number_input("Enter Number of Days", min_value=1, value=252)
-            vol = st.number_input("Enter Volatility (%)", min_value=0.0, max_value=100.0, value=20.0, step=0.1) / 100
-            simulations = monte_carlo_simulation(initial_value, num_simulations, num_days, vol)
-            fig_mc = go.Figure()
-            for simulation in simulations:
-                fig_mc.add_trace(go.Scatter(x=list(range(num_days + 1)), y=simulation, mode='lines', line=dict(width=1), opacity=0.5))
-            fig_mc.update_layout(title='Monte Carlo Simulation', xaxis_title='Day', yaxis_title='Price ($)', template='plotly_white')
-            st.plotly_chart(fig_mc)
+            profit_margin = calculate_profit_margin(data)
+            ebitda = calculate_ebitda(data)
+            revenue_growth = calculate_revenue_growth(data)
+            debt_to_equity_ratio = calculate_debt_to_equity_ratio(data)
+
+            st.subheader("Additional Financial Metrics")
+            st.write(f"Profit Margin: {profit_margin:.2f}")
+            st.write(f"EBITDA: {ebitda.sum():,.2f}")
+            st.write(f"Revenue Growth Rate: {revenue_growth.mean():.2f}")
+            st.write(f"Debt to Equity Ratio: {debt_to_equity_ratio:.2f}")
+
+            fig_revenue = px.line(data, x=data.index, y='Revenue', title='Historical Revenue')
+            st.plotly_chart(fig_revenue)
+
+            fig_ebitda = px.line(data, x=data.index, y=ebitda, title='Historical EBITDA')
+            st.plotly_chart(fig_ebitda)
+
+            fig_profit_margin = px.line(data, x=data.index, y=profit_margin, title='Historical Profit Margin')
+            st.plotly_chart(fig_profit_margin)
+
+            fig_debt_equity = px.line(data, x=data.index, y=debt_to_equity_ratio, title='Debt to Equity Ratio')
+            st.plotly_chart(fig_debt_equity)
+
+            simulations_revenue = monte_carlo_simulation(data['Revenue'].iloc[-1], num_simulations, num_days, vol)
+            fig_mc_revenue = go.Figure()
+            for simulation in simulations_revenue:
+                fig_mc_revenue.add_trace(go.Scatter(x=list(range(num_days + 1)), y=simulation, mode='lines', line=dict(width=1), opacity=0.5))
+            fig_mc_revenue.update_layout(title='Monte Carlo Simulation - Revenue', xaxis_title='Day', yaxis_title='Revenue ($)', template='plotly_white')
+            st.plotly_chart(fig_mc_revenue)
+
+            simulations_ebitda = monte_carlo_simulation(ebitda.iloc[-1], num_simulations, num_days, vol)
+            fig_mc_ebitda = go.Figure()
+            for simulation in simulations_ebitda:
+                fig_mc_ebitda.add_trace(go.Scatter(x=list(range(num_days + 1)), y=simulation, mode='lines', line=dict(width=1), opacity=0.5))
+            fig_mc_ebitda.update_layout(title='Monte Carlo Simulation - EBITDA', xaxis_title='Day', yaxis_title='EBITDA ($)', template='plotly_white')
+            st.plotly_chart(fig_mc_ebitda)
+
+            simulations_profit_margin = monte_carlo_simulation(profit_margin.iloc[-1], num_simulations, num_days, vol)
+            fig_mc_profit_margin = go.Figure()
+            for simulation in simulations_profit_margin:
+                fig_mc_profit_margin.add_trace(go.Scatter(x=list(range(num_days + 1)), y=simulation, mode='lines', line=dict(width=1), opacity=0.5))
+            fig_mc_profit_margin.update_layout(title='Monte Carlo Simulation - Profit Margin', xaxis_title='Day', yaxis_title='Profit Margin (%)', template='plotly_white')
+            st.plotly_chart(fig_mc_profit_margin)
 
             df_results = pd.DataFrame({
                 "Metric": ["DCF Value", "Terminal Value", "WACC", "FCF (Year 1)", "FCF (Year 2)", "FCF (Year 3)", "FCF (Year 4)", "FCF (Year 5)"],
