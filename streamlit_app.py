@@ -179,6 +179,15 @@ if uploaded_file:
     fig_metrics = px.bar(metrics_df, x='Metric', y='Value', title="Key Financial Metrics", labels={'Value': 'Amount ($)'})
     st.plotly_chart(fig_metrics)
 
+    # Financial Ratios (P/E, Debt/Equity)
+    st.subheader("Key Financial Ratios")
+
+    pe_ratio = data['Market Capitalization'].sum() / data['Net Income'].sum()  # Example P/E ratio
+    debt_equity_ratio = data['Total Debt'].sum() / data['Total Equity'].sum()  # Example Debt/Equity ratio
+
+    st.write(f"P/E Ratio: {pe_ratio:.2f}")
+    st.write(f"Debt/Equity Ratio: {debt_equity_ratio:.2f}")
+
     # Display other financial metrics
     st.subheader("DCF Assumptions")
     st.write(f"Cost of Equity: {cost_of_equity}%")
