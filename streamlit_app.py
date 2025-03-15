@@ -87,10 +87,6 @@ def fetch_historical_data():
     return pd.DataFrame()
 
 @st.cache_data
-def industry_comparison():
-    return pd.DataFrame(), {}
-
-@st.cache_data
 def monte_carlo_simulation(initial_value, num_simulations, num_days, vol):
     simulations = []
     for _ in range(num_simulations):
@@ -222,27 +218,6 @@ if uploaded_file:
             }
             for key, value in assumptions.items():
                 st.write(f"{key}: {value}")
-
-            ticker = st.text_input("Enter Stock Ticker for Historical Data Analysis")
-            if ticker:
-                historical_data = fetch_historical_data()
-                st.write("Historical Data:", historical_data)
-                x = np.array(historical_data.index).reshape(-1, 1)
-                y = historical_data['Close'].values
-                model = LinearRegression().fit(x, y)
-                trend = model.predict(x)
-                fig_trend = go.Figure()
-                fig_trend.add_trace(go.Scatter(x=historical_data.index, y=historical_data['Close'], mode='lines', name='Historical Close'))
-                fig_trend.add_trace(go.Scatter(x=historical_data.index, y=trend, mode='lines', name='Trend', line=dict(dash='dash')))
-                fig_trend.update_layout(title='Historical Data and Trend Analysis', xaxis_title='Year', yaxis_title='Close Price ($)', template='plotly_white')
-                st.plotly_chart(fig_trend)
-
-            peer_tickers = st.text_input("Enter Peer Tickers for Industry Comparison (comma separated)").split(',')
-            if ticker and peer_tickers:
-                company_data, peer_data = industry_comparison()
-                st.write("Company Data:", company_data)
-                for peer_ticker, data in peer_data.items():
-                    st.write(f"Peer Data ({peer_ticker}):", data)
 
             initial_value = st.number_input("Enter Initial Value for Monte Carlo Simulation", min_value=1.0, value=100.0)
             num_simulations = st.number_input("Enter Number of Simulations", min_value=1, value=100)
