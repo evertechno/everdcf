@@ -106,13 +106,15 @@ if uploaded_file:
     st.write(f"Calculated Free Cash Flow: {fcf}")
 
     # Allow user to input other assumptions for the valuation (Cost of Equity, Cost of Debt, etc.)
-    cost_of_equity = st.number_input('Enter Cost of Equity (%)', min_value=0.0, max_value=100.0, value=8.0, step=0.1)
-    cost_of_debt = st.number_input('Enter Cost of Debt (%)', min_value=0.0, max_value=100.0, value=4.0, step=0.1)
-    equity_value = st.number_input('Enter Total Equity Value ($)', min_value=1.0, value=500000000)
-    debt_value = st.number_input('Enter Total Debt Value ($)', min_value=1.0, value=200000000)
-    tax_rate = st.number_input('Enter Tax Rate (%)', min_value=0.0, max_value=100.0, value=25.0) / 100
-    growth_rate = st.number_input('Enter Perpetuity Growth Rate (%)', min_value=0.0, max_value=100.0, value=2.5) / 100
-    forecast_years = st.number_input('Enter Number of Forecast Years', min_value=1, max_value=10, value=5)
+    # Ensuring matching numeric types to fix the "StreamlitMixedNumericTypesError"
+    
+    cost_of_equity = st.number_input('Enter Cost of Equity (%)', min_value=0.0, max_value=100.0, value=8.0, step=0.1, format="%.2f")
+    cost_of_debt = st.number_input('Enter Cost of Debt (%)', min_value=0.0, max_value=100.0, value=4.0, step=0.1, format="%.2f")
+    equity_value = st.number_input('Enter Total Equity Value ($)', min_value=1.0, value=500000000, format="%.2f")
+    debt_value = st.number_input('Enter Total Debt Value ($)', min_value=1.0, value=200000000, format="%.2f")
+    tax_rate = st.number_input('Enter Tax Rate (%)', min_value=0.0, max_value=100.0, value=25.0, step=0.1, format="%.2f") / 100
+    growth_rate = st.number_input('Enter Perpetuity Growth Rate (%)', min_value=0.0, max_value=100.0, value=2.5, step=0.1, format="%.2f") / 100
+    forecast_years = st.number_input('Enter Number of Forecast Years', min_value=1, max_value=10, value=5, format="%.0f")
 
     # Calculate WACC
     wacc = calculate_wacc(cost_of_equity / 100, cost_of_debt / 100, equity_value, debt_value, tax_rate)
