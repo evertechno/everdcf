@@ -148,7 +148,7 @@ def download_template():
     excel_buffer.seek(0)
     return excel_buffer
 
-st.set_page_config(page_title="Automated DCF Valuation", layout="wide")
+st.set_page_config(page_title="Agent Biscuit", layout="wide")
 st.title('Automated DCF Valuation')
 
 st.markdown("""
