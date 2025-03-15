@@ -149,7 +149,7 @@ def download_template():
     return excel_buffer
 
 st.set_page_config(page_title="Agent Biscuit", layout="wide")
-st.title('Automated DCF Valuation')
+st.title('Agent Biscuit ')
 
 st.markdown("""
 This application performs an **automated DCF valuation** of a company based on uploaded financial statements. You can also perform **sensitivity analysis**, adjust forecast scenarios, and analyze **industry benchmarks**.
