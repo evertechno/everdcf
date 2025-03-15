@@ -7,20 +7,20 @@ from io import BytesIO
 from datetime import datetime
 
 # Caching functions to improve performance
-@st.cache
+@st.cache_data
 def calculate_fcf(data):
     """Calculate Free Cash Flow (FCF) based on the income statement and cash flow statement"""
     fcf = data['Operating Income'] - data['Taxes'] + data['Depreciation'] - data['Capital Expenditures'] - data['Changes in Working Capital']
     return fcf
 
-@st.cache
+@st.cache_data
 def calculate_wacc(cost_of_equity, cost_of_debt, equity_value, debt_value, tax_rate):
     """Calculate Weighted Average Cost of Capital (WACC)"""
     total_value = equity_value + debt_value
     wacc = (equity_value / total_value) * cost_of_equity + (debt_value / total_value) * cost_of_debt * (1 - tax_rate)
     return wacc
 
-@st.cache
+@st.cache_data
 def calculate_terminal_value(fcf, growth_rate, discount_rate, method='perpetuity'):
     """Calculate Terminal Value using different methods"""
     if method == 'perpetuity':
@@ -30,7 +30,7 @@ def calculate_terminal_value(fcf, growth_rate, discount_rate, method='perpetuity
         terminal_value = fcf * exit_multiple
     return terminal_value
 
-@st.cache
+@st.cache_data
 def dcf_valuation(fcf, wacc, terminal_value, years):
     """Calculate DCF valuation"""
     discounted_fcf = sum([fcf[i] / (1 + wacc)**(i+1) for i in range(years)])
@@ -38,7 +38,7 @@ def dcf_valuation(fcf, wacc, terminal_value, years):
     dcf_value = discounted_fcf + discounted_terminal_value
     return dcf_value
 
-@st.cache
+@st.cache_data
 def sensitivity_analysis(fcf, wacc_range, growth_range, years):
     """Perform sensitivity analysis for DCF valuation"""
     sensitivity_results = []
@@ -50,7 +50,7 @@ def sensitivity_analysis(fcf, wacc_range, growth_range, years):
     sensitivity_df = pd.DataFrame(sensitivity_results, columns=['WACC', 'Growth Rate', 'DCF Value'])
     return sensitivity_df
 
-@st.cache
+@st.cache_data
 def plot_sensitivity_analysis(sensitivity_df):
     """Plot sensitivity analysis results"""
     fig = px.scatter_3d(sensitivity_df, x='WACC', y='Growth Rate', z='DCF Value', title='Sensitivity Analysis')
@@ -164,6 +164,24 @@ if uploaded_file:
     # Plot DCF Valuation
     fig_dcf = px.bar(x=[f'DCF Value'], y=[dcf_value], title='DCF Valuation', labels={'x': 'Valuation Type', 'y': 'Value ($)'})
     st.plotly_chart(fig_dcf)
+
+    # Plot Revenue, Operating Income, Taxes, and Capital Expenditures over the forecast years
+    revenue_forecast = data['Revenue'].head(forecast_years).values
+    operating_income_forecast = data['Operating Income'].head(forecast_years).values
+    taxes_forecast = data['Taxes'].head(forecast_years).values
+    capex_forecast = data['Capital Expenditures'].head(forecast_years).values
+
+    fig_financials = plt.figure(figsize=(10, 6))
+    plt.plot(years, revenue_forecast, label="Revenue", marker='o')
+    plt.plot(years, operating_income_forecast, label="Operating Income", marker='o')
+    plt.plot(years, taxes_forecast, label="Taxes", marker='o')
+    plt.plot(years, capex_forecast, label="Capital Expenditures", marker='o')
+    plt.title('Financial Projections')
+    plt.xlabel('Year')
+    plt.ylabel('Amount ($)')
+    plt.grid(True)
+    plt.legend()
+    st.pyplot(fig_financials)
 
     # Display other financial metrics
     st.subheader("DCF Assumptions")
