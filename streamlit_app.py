@@ -53,7 +53,9 @@ def sensitivity_analysis(fcf, wacc_range, growth_range, years):
 @st.cache_data
 def plot_sensitivity_analysis(sensitivity_df):
     """Plot sensitivity analysis results"""
-    fig = px.scatter_3d(sensitivity_df, x='WACC', y='Growth Rate', z='DCF Value', title='Sensitivity Analysis')
+    fig = px.scatter_3d(sensitivity_df, x='WACC', y='Growth Rate', z='DCF Value', 
+                        title='Sensitivity Analysis',
+                        labels={'WACC': 'WACC (%)', 'Growth Rate': 'Growth Rate (%)', 'DCF Value': 'DCF Value ($)'})
     return fig
 
 def download_template():
@@ -146,14 +148,15 @@ if uploaded_file:
     sensitivity_fig = plot_sensitivity_analysis(sensitivity_df)
     st.plotly_chart(sensitivity_fig)
 
-    # Create Dashboard Visualizations
+    # Enhanced Financial Projections Visualization
     st.subheader("Financial Projections & Valuation")
 
-    # Plot Free Cash Flow over the forecast years
+    # Plot Free Cash Flow over the forecast years with bar chart and line chart
     years = np.arange(1, forecast_years + 1)
     fcf_forecast = fcf.head(forecast_years).values  # Use first n years' FCF
     fig_fcf = plt.figure(figsize=(10, 6))
-    plt.plot(years, fcf_forecast, marker='o', label="Free Cash Flow")
+    plt.bar(years, fcf_forecast, color='skyblue', label="Free Cash Flow")
+    plt.plot(years, fcf_forecast, marker='o', color='red', label="Free Cash Flow (Line)")
     plt.title('Free Cash Flow Projections')
     plt.xlabel('Year')
     plt.ylabel('FCF ($)')
@@ -165,23 +168,16 @@ if uploaded_file:
     fig_dcf = px.bar(x=[f'DCF Value'], y=[dcf_value], title='DCF Valuation', labels={'x': 'Valuation Type', 'y': 'Value ($)'})
     st.plotly_chart(fig_dcf)
 
-    # Plot Revenue, Operating Income, Taxes, and Capital Expenditures over the forecast years
-    revenue_forecast = data['Revenue'].head(forecast_years).values
-    operating_income_forecast = data['Operating Income'].head(forecast_years).values
-    taxes_forecast = data['Taxes'].head(forecast_years).values
-    capex_forecast = data['Capital Expenditures'].head(forecast_years).values
+    # Financial Metrics (Bar chart comparison of key financial metrics)
+    st.subheader("Key Financial Metrics")
 
-    fig_financials = plt.figure(figsize=(10, 6))
-    plt.plot(years, revenue_forecast, label="Revenue", marker='o')
-    plt.plot(years, operating_income_forecast, label="Operating Income", marker='o')
-    plt.plot(years, taxes_forecast, label="Taxes", marker='o')
-    plt.plot(years, capex_forecast, label="Capital Expenditures", marker='o')
-    plt.title('Financial Projections')
-    plt.xlabel('Year')
-    plt.ylabel('Amount ($)')
-    plt.grid(True)
-    plt.legend()
-    st.pyplot(fig_financials)
+    metrics_df = pd.DataFrame({
+        'Metric': ['Revenue', 'Operating Income', 'Taxes', 'Capital Expenditures', 'FCF'],
+        'Value': [data['Revenue'].sum(), data['Operating Income'].sum(), data['Taxes'].sum(), data['Capital Expenditures'].sum(), fcf.sum()]
+    })
+
+    fig_metrics = px.bar(metrics_df, x='Metric', y='Value', title="Key Financial Metrics", labels={'Value': 'Amount ($)'})
+    st.plotly_chart(fig_metrics)
 
     # Display other financial metrics
     st.subheader("DCF Assumptions")
