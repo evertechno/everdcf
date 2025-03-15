@@ -4,19 +4,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 from io import BytesIO
+from datetime import datetime
 
-# Helper functions for DCF Calculation
+# Caching functions to improve performance
+@st.cache
 def calculate_fcf(data):
     """Calculate Free Cash Flow (FCF) based on the income statement and cash flow statement"""
     fcf = data['Operating Income'] - data['Taxes'] + data['Depreciation'] - data['Capital Expenditures'] - data['Changes in Working Capital']
     return fcf
 
+@st.cache
 def calculate_wacc(cost_of_equity, cost_of_debt, equity_value, debt_value, tax_rate):
     """Calculate Weighted Average Cost of Capital (WACC)"""
     total_value = equity_value + debt_value
     wacc = (equity_value / total_value) * cost_of_equity + (debt_value / total_value) * cost_of_debt * (1 - tax_rate)
     return wacc
 
+@st.cache
 def calculate_terminal_value(fcf, growth_rate, discount_rate, method='perpetuity'):
     """Calculate Terminal Value using different methods"""
     if method == 'perpetuity':
@@ -26,6 +30,7 @@ def calculate_terminal_value(fcf, growth_rate, discount_rate, method='perpetuity
         terminal_value = fcf * exit_multiple
     return terminal_value
 
+@st.cache
 def dcf_valuation(fcf, wacc, terminal_value, years):
     """Calculate DCF valuation"""
     discounted_fcf = sum([fcf[i] / (1 + wacc)**(i+1) for i in range(years)])
@@ -33,6 +38,7 @@ def dcf_valuation(fcf, wacc, terminal_value, years):
     dcf_value = discounted_fcf + discounted_terminal_value
     return dcf_value
 
+@st.cache
 def sensitivity_analysis(fcf, wacc_range, growth_range, years):
     """Perform sensitivity analysis for DCF valuation"""
     sensitivity_results = []
@@ -44,19 +50,12 @@ def sensitivity_analysis(fcf, wacc_range, growth_range, years):
     sensitivity_df = pd.DataFrame(sensitivity_results, columns=['WACC', 'Growth Rate', 'DCF Value'])
     return sensitivity_df
 
+@st.cache
 def plot_sensitivity_analysis(sensitivity_df):
     """Plot sensitivity analysis results"""
     fig = px.scatter_3d(sensitivity_df, x='WACC', y='Growth Rate', z='DCF Value', title='Sensitivity Analysis')
     return fig
 
-# Streamlit interface
-st.title('Automated DCF Valuation')
-
-st.markdown("""
-This application performs an **automated DCF valuation** of a company based on uploaded financial statements. You can also perform **sensitivity analysis**, adjust forecast scenarios, and analyze **industry benchmarks**.
-""")
-
-# Allow user to download the template
 def download_template():
     """Generate and provide a download link for the template"""
     template_data = {
@@ -82,6 +81,14 @@ def download_template():
     # Return as downloadable file
     return excel_buffer
 
+# Streamlit interface
+st.title('Automated DCF Valuation')
+
+st.markdown("""
+This application performs an **automated DCF valuation** of a company based on uploaded financial statements. You can also perform **sensitivity analysis**, adjust forecast scenarios, and analyze **industry benchmarks**.
+""")
+
+# Allow user to download the template
 st.download_button(
     label="Download Financial Data Template",
     data=download_template(),
